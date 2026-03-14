@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: dex-monitor
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: RPC_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: dex-monitor-redis
+          property: connectionString
+
+  - type: redis
+    name: dex-monitor-redis
+    plan: free
+```

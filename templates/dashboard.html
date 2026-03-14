@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DEX Price Monitor</title>
+    <style>
+        body { font-family: monospace; background: #0d1117; color: #c9d1d9; padding: 20px; }
+        h1 { color: #58a6ff; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+        .card h3 { color: #58a6ff; margin-top: 0; }
+        .dex-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #21262d; }
+        .sparkline { margin-left: 12px; opacity: 0.85; }
+        .spread { font-size: 1.2em; font-weight: bold; }
+        .spread.hot { color: #f85149; }   /* > 0.5% */
+        .spread.warm { color: #d29922; }  /* 0.1–0.5% */
+        .spread.cold { color: #3fb950; }  /* < 0.1% */
+        .status-bar { display: flex; gap: 20px; margin-bottom: 20px; font-size: 0.85em; color: #8b949e; }
+        .arb-table { width: 100%; border-collapse: collapse; }
+        .arb-table td, .arb-table th { padding: 8px; border-bottom: 1px solid #21262d; text-align: left; }
+        #slippage-calc { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-top: 20px; }
+        input, select { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; padding: 6px; border-radius: 4px; }
+        button { background: #238636; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>⚡ DEX Price Monitor</h1>
+    
+    <div class="status-bar">
+        <span>Last update: <span id="last-update">—</span></span>
+        <span>Cache: <span id="cache-status">—</span></span>
+        <span>Auto-refresh: <span id="countdown">15s</span></span>
+    </div>
+
+    <div class="grid" id="pairs-grid">Loading...</div>
+
+    <div id="slippage-calc">
+        <h3>🧮 Slippage Calculator</h3>
+        <select id="calc-pair">
+            <option>WETH/USDC</option>
+            <option>WETH/USDT</option>
+            <option>WETH/DAI</option>
+        </select>
+        <select id="calc-dex">
+            <option>uniswap</option>
+            <option>sushiswap</option>
+        </select>
+        <input id="calc-amount" type="number" value="1" step="0.1" placeholder="Amount in">
+        <button onclick="calcSlippage()">Calculate</button>
+        <div id="calc-result" style="margin-top:12px;"></div>
+    </div>
+
+    <script src="/static/dashboard.js"></script>
+    <script>
+        function sparkline(prices, width=100, height=30) {
+            if (prices.length < 2) return "";
+            const min = Math.min(...prices);
+            const max = Math.max(...prices);
+            const range = max - min || 1;
+            const pts = prices.map((p, i) => {
+                const x = (i / (prices.length - 1)) * width;
+                const y = height - ((p - min) / range) * height;
+                return `${x},${y}`;
+            }).join(" ");
+            return `<svg class="sparkline" width="${width}" height="${height}"><polyline points="${pts}" fill="none" stroke="#58a6ff" stroke-width="1.5"/></svg>`;
+        }
+
+        async function loadSparkline(pair, dex, container) {
+            // pair arrives as "WETH/USDC" — encode for URL as "WETH-USDC"
+            const urlPair = pair.replace("/", "-");
+            try {
+                const res = await fetch(`/api/history/${urlPair}/${dex}`);
+                const json = await res.json();
+                const prices = (json.history || []).map(h => h.price);
+                container.innerHTML = sparkline(prices);
+            } catch (e) {
+                container.innerHTML = "";
+            }
+        }
+
+        // Hook into pair card rendering — call after each dex row is built
+        // Usage: attachSparklines() after the grid is populated
+        function attachSparklines() {
+            document.querySelectorAll("[data-pair][data-dex]").forEach(el => {
+                loadSparkline(el.dataset.pair, el.dataset.dex, el);
+            });
+        }
+
+        // Re-attach sparklines whenever the grid refreshes
+        const _observer = new MutationObserver(() => attachSparklines());
+        _observer.observe(document.getElementById("pairs-grid"), { childList: true, subtree: true });
+    </script>
