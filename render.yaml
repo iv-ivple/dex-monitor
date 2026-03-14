@@ -16,4 +16,3 @@ services:
   - type: redis
     name: dex-monitor-redis
     plan: free
-```
