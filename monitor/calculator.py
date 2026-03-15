@@ -1,34 +1,39 @@
-def calculate_slippage(amount_in, reserve0, reserve1):
+def calculate_slippage(amount_in, reserve_in, reserve_out):
     """
-    Calculate slippage using the constant product AMM formula (x * y = k).
+    Calculate slippage and price impact using the constant product AMM formula (x * y = k).
 
     Args:
-        amount_in: Amount of token0 being swapped
-        reserve0:  Pool reserve of token0
-        reserve1:  Pool reserve of token1
+        amount_in:   Amount of the input token being swapped
+        reserve_in:  Pool reserve of the input token  (token you are selling)
+        reserve_out: Pool reserve of the output token (token you are buying)
 
     Returns:
-        dict with amount_out, effective_price, mid_price, slippage_pct
+        dict with amount_out, effective_price, mid_price, slippage_pct, price_impact_pct
     """
-    if reserve0 <= 0 or reserve1 <= 0:
+    if reserve_in <= 0 or reserve_out <= 0:
         return {"error": "Invalid reserves"}
 
     # Apply 0.3% fee (standard Uniswap v2)
     amount_in_with_fee = amount_in * 0.997
 
-    # x * y = k  →  amount_out = (amount_in_with_fee * reserve1) / (reserve0 + amount_in_with_fee)
-    amount_out = (amount_in_with_fee * reserve1) / (reserve0 + amount_in_with_fee)
+    # x * y = k  →  amount_out = (amount_in_with_fee * reserve_out) / (reserve_in + amount_in_with_fee)
+    amount_out = (amount_in_with_fee * reserve_out) / (reserve_in + amount_in_with_fee)
 
-    mid_price = reserve1 / reserve0
-    effective_price = amount_out / amount_in
-    slippage_pct = ((mid_price - effective_price) / mid_price) * 100
+    mid_price        = reserve_out / reserve_in
+    effective_price  = amount_out / amount_in
+    slippage_pct     = ((mid_price - effective_price) / mid_price) * 100
+
+    # Price impact: how much this trade shifts the pool price (before fee)
+    # = amount_in / (reserve_in + amount_in)  expressed as a percentage
+    price_impact_pct = (amount_in / (reserve_in + amount_in)) * 100
 
     return {
-        "amount_in": amount_in,
-        "amount_out": amount_out,
-        "mid_price": mid_price,
-        "effective_price": effective_price,
-        "slippage_pct": round(slippage_pct, 4),
+        "amount_in":        amount_in,
+        "amount_out":       round(amount_out, 6),
+        "mid_price":        round(mid_price, 6),
+        "effective_price":  round(effective_price, 6),
+        "slippage_pct":     round(slippage_pct, 4),
+        "price_impact_pct": round(price_impact_pct, 4),
     }
 
 
@@ -66,22 +71,22 @@ def calculate_spread(data):
             spreads[pair] = {"prices": prices, "spread_pct": 0, "error": "Not enough DEXes to compare"}
             continue
 
-        min_price = min(prices.values())
-        max_price = max(prices.values())
+        min_price  = min(prices.values())
+        max_price  = max(prices.values())
         spread_abs = max_price - min_price
         spread_pct = (spread_abs / min_price) * 100 if min_price > 0 else 0
 
-        best_buy  = min(prices, key=prices.get)   # cheapest — buy here
-        best_sell = max(prices, key=prices.get)   # most expensive — sell here
+        best_buy  = min(prices, key=prices.get)   # cheapest  — buy here
+        best_sell = max(prices, key=prices.get)   # priciest  — sell here
 
         spreads[pair] = {
-            "prices": prices,
-            "min_price": min_price,
-            "max_price": max_price,
+            "prices":     prices,
+            "min_price":  min_price,
+            "max_price":  max_price,
             "spread_abs": round(spread_abs, 6),
             "spread_pct": round(spread_pct, 4),
-            "best_buy": best_buy,
-            "best_sell": best_sell,
+            "best_buy":   best_buy,
+            "best_sell":  best_sell,
         }
 
     return spreads
