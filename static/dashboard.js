@@ -52,17 +52,38 @@ async function calcSlippage() {
     const pair   = document.getElementById("calc-pair").value;
     const dex    = document.getElementById("calc-dex").value;
     const amount = document.getElementById("calc-amount").value;
-    
-    const res = await fetch(`/api/slippage?pair=${encodeURIComponent(pair)}&dex=${dex}&amount=${amount}`);
-    const data = await res.json();
-    
-    document.getElementById("calc-result").innerHTML = `
-        <table>
-            <tr><td>Spot Price</td><td>${data.spot_price.toFixed(4)}</td></tr>
-            <tr><td>Effective Price</td><td>${data.effective_price.toFixed(4)}</td></tr>
-            <tr><td>Amount Out</td><td>${data.amount_out.toFixed(4)}</td></tr>
-            <tr><td>Slippage</td><td style="color:${data.slippage_pct > 1 ? '#f85149' : '#3fb950'}">${data.slippage_pct.toFixed(4)}%</td></tr>
-        </table>`;
+    const result = document.getElementById("calc-result");
+
+    // For WETH/* pairs the contract stores token0=stable, token1=WETH
+    // so we must tell the API we are selling token1 (WETH)
+    const token_in = pair.startsWith("WETH/") ? "token1" : "token0";
+
+    result.innerHTML = `<span style="color:#8b949e">Calculating...</span>`;
+
+    try {
+        const res  = await fetch(`/api/slippage?pair=${encodeURIComponent(pair)}&dex=${dex}&amount=${amount}&token_in=${token_in}`);
+        const data = await res.json();
+
+        if (data.error) {
+            result.innerHTML = `<span style="color:#f85149">Error: ${data.error}</span>`;
+            return;
+        }
+
+        const impactColor  = data.price_impact_pct > 1  ? "#f85149" : data.price_impact_pct > 0.3 ? "#d29922" : "#3fb950";
+        const slippageColor = data.slippage_pct    > 1  ? "#f85149" : "#3fb950";
+
+        result.innerHTML = `
+            <table>
+                <tr><td>Selling</td><td>${amount} ${data.selling}</td></tr>
+                <tr><td>Buying</td><td>${data.amount_out.toFixed(4)} ${data.buying}</td></tr>
+                <tr><td>Spot Price</td><td>${data.mid_price.toFixed(4)}</td></tr>
+                <tr><td>Effective Price</td><td>${data.effective_price.toFixed(4)}</td></tr>
+                <tr><td>Slippage</td><td style="color:${slippageColor}">${data.slippage_pct.toFixed(4)}%</td></tr>
+                <tr><td>Price Impact</td><td style="color:${impactColor}">${data.price_impact_pct.toFixed(4)}% 🥪</td></tr>
+            </table>`;
+    } catch (e) {
+        result.innerHTML = `<span style="color:#f85149">Request failed: ${e.message}</span>`;
+    }
 }
 
 // Auto-refresh
