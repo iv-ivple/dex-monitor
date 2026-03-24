@@ -29,6 +29,10 @@ MONITORED_PAIRS = {
         "uniswap":   "0xBb2b8038a1640196FbE3e38816F3e67Cba72D940",
         "sushiswap": "0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58",
     },
+    "USDC/DAI": {
+        "uniswap": "0xAE461cA67B15dc8dc81CE7615e0320dA1A9aB8D5",
+        "sushiswap": "0xAaF5110db6e744ff70fB339DE037B990A20bdace",
+    },
 }
 
 # Cache TTLs
